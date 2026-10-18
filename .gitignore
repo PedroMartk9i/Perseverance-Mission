@@ -1,0 +1,38 @@
+# Genérico por ahora: el stack del proyecto aún no está decidido.
+# Al cerrar esa decisión, reemplazar por el .gitignore propio del motor
+# (Unity y Godot necesitan reglas bastante distintas).
+
+# Dependencias y builds
+node_modules/
+dist/
+build/
+.cache/
+*.tsbuildinfo
+
+# Entorno
+.env
+.env.*
+!.env.example
+
+# Datos pesados descargados (DEM, ortofotos, modelos 3D)
+# Se descargan con scripts, no se versionan.
+data/raw/
+*.tif
+*.tiff
+*.glb
+*.gltf.bin
+
+# Editores
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Sistema operativo
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
