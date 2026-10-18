@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Favicon embebido: sin el, el navegador pide /favicon.ico y el 404
+         aparece como error de consola, que hace fallar npm run check. -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='%23c8703a'/></svg>"
+    />
+    <title>Perseverance — Jezero</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #140b06;
+      }
+      canvas {
+        display: block;
+      }
+      #hud {
+        position: fixed;
+        left: 18px;
+        bottom: 16px;
+        font: 12px/1.7 ui-monospace, SFMono-Regular, Consolas, monospace;
+        color: #f8e2c8;
+        opacity: 0.78;
+        letter-spacing: 0.02em;
+        pointer-events: none;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+      }
+      #hud b {
+        color: #ffd9a8;
+      }
+      #hud .credit {
+        opacity: 0.6;
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="hud">Cargando el rover…</div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

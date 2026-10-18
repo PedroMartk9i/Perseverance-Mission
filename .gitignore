@@ -36,3 +36,13 @@ Desktop.ini
 # Logs
 *.log
 npm-debug.log*
+
+# Capturas del verificador (npm run check): son artefactos, no fuente
+checks/
+test-results/
+playwright-report/
+.playwright/
+
+# Activos descargados con npm run fetch:model
+public/models/
+public/draco/

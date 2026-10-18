@@ -1,0 +1,21 @@
+{
+  "name": "perseverance-mission",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Simulador en tercera persona del rover Perseverance en el crater Jezero",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "node scripts/check.mjs",
+    "fetch:model": "node scripts/fetch-model.mjs"
+  },
+  "dependencies": {
+    "three": "^0.186.1",
+    "vite": "^8.3.4"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.64.1"
+  }
+}

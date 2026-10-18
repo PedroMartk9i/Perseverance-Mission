@@ -1,27 +1,42 @@
 # Perseverance Mission
 
-Simulador en tercera persona para conducir el rover **Perseverance** por el
-cráter Jezero, en Marte — construido alrededor de los datos reales de la misión.
+Simulador en tercera persona para conducir el rover **Perseverance** por un
+campo de dunas marciano, con el modelo oficial de la NASA a escala real.
 
-No es un paseo por un Marte inventado. Cada sitio del recorrido existe, está en
-sus coordenadas verdaderas, y al llegar conduciendo hasta él desbloquea la nota
-histórica de lo que la misión encontró ahí.
+No es un paseo por un Marte de cartón: el rover mide sus 3 metros de verdad, se
+inclina sobre las dunas apoyado en sus seis ruedas, deja huellas, levanta polvo
+al correr y choca contra las rocas que no puede subir.
+
+```
+npm install
+npm run fetch:model      # descarga el modelo de la NASA (4,76 MB)
+npm run dev              # http://localhost:5173
+```
+
+| Tecla | Acción |
+|---|---|
+| `W` `A` `S` `D` | Conducir |
+| `Shift` | Acelerar el tiempo (×700 en vez de ×120) |
+| Arrastrar ratón | Orbitar alrededor del rover |
+| Rueda | Zoom, de 3 m a 220 m |
+| `C` | Recentrar la cámara detrás del rover |
 
 ---
 
-## Estado del proyecto
+## Qué hay hecho
 
-En diseño. El motor de render todavía **no está decidido** (ver
-[Decisiones abiertas](#decisiones-abiertas)), y la arquitectura está hecha
-precisamente para que esa decisión no bloquee el trabajo.
-
-| Capa | Depende del motor | Estado |
-|---|---|---|
-| Datos | No | Lista para implementar |
-| Núcleo de dominio | No | Lista para implementar |
-| Simulación | Sí | Bloqueada |
-| Presentación | Sí | Bloqueada |
-| Aplicación | Sí | Bloqueada |
+- **Terreno procedural** de 6 km con dunas, borde de cráter conducible a 2,3 km
+  y un parche de 1 m de resolución que sigue al rover.
+- **Rover oficial de la NASA** (`nasa/NASA-3D-Resources`), 324 piezas, escalado
+  calibrando contra el diámetro de rueda publicado: 52,5 cm.
+- **Suspensión de 6 puntos**: cada rueda evalúa el terreno en su posición y el
+  chasis deriva altura, cabeceo y alabeo de esos contactos.
+- **Colisión con rocas**: las que sobresalen más de 55 cm —la altura libre real
+  del chasis— son obstáculos; las menores se pasan por encima.
+- **Huellas** con patrón de tacos, acostadas sobre la pendiente.
+- **Polvareda** al correr, que se desvanece.
+- **Cielo caramelo**, sol de tarde a 11°, polvo en suspensión, Fobos y Deimos.
+- **`npm run check`**: lazo de verificación por captura (ver abajo).
 
 ---
 
@@ -32,229 +47,124 @@ hacia arriba.** El núcleo no sabe que existe un motor 3D.
 
 ```mermaid
 flowchart TB
-    subgraph APP["Aplicacion (requiere motor)"]
-        BOOT["bootstrap y game loop"]
+    subgraph APP["Aplicacion"]
+        BOOT["main.js: bootstrap y game loop"]
+        INPUT["app/input.js: teclado"]
     end
-    subgraph PRES["Presentacion (requiere motor)"]
-        REND["render 3D"]
-        CAM["camara tercera persona"]
-        HUD["HUD, mapa orbital, bitacora"]
+    subgraph PRES["Presentacion"]
+        REND["render: terreno, cielo, rocas, polvo, lunas"]
+        CAM["render/orbit-rig: camara orbital"]
+        MODEL["render/rover-model: carga del glTF"]
     end
-    subgraph SIM["Simulacion (requiere motor)"]
-        PHYS["fisica y colision con terreno"]
-        ROVER["modelo del rover"]
+    subgraph SIM["Simulacion"]
+        ROVER["sim/rover: suspension, traccion, colision"]
     end
-    subgraph DOM["Nucleo de dominio (sin motor)"]
-        GEO["geo: lat/lon a metros"]
-        MIS["mission: proximidad y desbloqueo"]
-        TEL["telemetry: estado del rover"]
-    end
-    subgraph DATA["Datos (JSON versionado)"]
-        WP["waypoints.json"]
-        INS["instruments.json"]
-        VAL["validador de esquema y fuentes"]
+    subgraph DOM["Nucleo (sin motor)"]
+        NOISE["core/noise: ruido puro"]
+        HEIGHT["core/terrain-height: altura del terreno"]
+        ROCKS["core/rock-field: donde estan las rocas"]
     end
     APP --> PRES
     APP --> SIM
     PRES --> DOM
     SIM --> DOM
-    DOM --> DATA
 ```
 
-### Por qué así
+El motor está aislado a propósito: `core/` es matemática pura y datos, sin un
+solo `import` de three.js. Es lo que permite que la física y el dibujo lean
+exactamente la misma verdad.
 
-El motor está sin decidir. En vez de esperar, el proyecto aísla todo lo que no
-depende de él: la conversión de coordenadas marcianas, la lógica de misión, el
-modelo de telemetría y los datos históricos. Eso es **la mitad del proyecto**, y
-se puede construir y testear hoy.
+### La regla que más veces nos ha salvado
 
-Cuando el motor se elija, solo se escriben las tres capas superiores. Nada de lo
-hecho se tira. El motor pasa a ser un detalle reemplazable, no el cimiento.
+**Lo que se dibuja y lo que se simula tienen que ser la misma superficie.**
 
-### Las capas
+Suena obvio y ha costado tres fallos distintos:
 
-**Datos** — JSON versionado en `data/`. Waypoints reales con sus coordenadas,
-sol, instrumentos y fuentes; especificaciones de instrumentos. Incluye un
-validador que rechaza entradas sin fuente verificada.
+1. Unos cerros decorativos que el terreno no conocía — el rover entraba *dentro*
+   de la montaña. Ahora el borde del cráter vive en `heightAt()`.
+2. El terreno lejano, con celdas de 16,7 m, asomaba por encima del parche de
+   detalle. Se veía como charcos lisos, enterraba las huellas y dejaba pasar las
+   llantas. Ahora esa malla se **recorta** donde manda el parche.
+3. Las rocas se generaban dentro de la capa de render, así que la física no
+   sabía que existían. Ahora viven en `core/rock-field.js` y las leen las dos
+   capas.
 
-**Núcleo de dominio** — lógica pura, sin un solo import del motor, cubierta con
-tests. Tres módulos:
-- `geo` — proyección de lat/lon marciana a metros en plano tangente local.
-- `mission` — detección de proximidad, estado de desbloqueo, bitácora.
-- `telemetry` — estado del rover (posición, rumbo, inclinación, instrumentos).
-
-**Simulación** — física del vehículo y colisión con el terreno. Consume el
-núcleo; no lo modifica.
-
-**Presentación** — render 3D, cámara en tercera persona, HUD, mapa orbital y
-fichas históricas. Solo lee del núcleo.
-
-**Aplicación** — cableado y game loop. La única capa que conoce a todas las demás.
+Corolario: si algo con volumen tiene que estorbar, o es relieve (`heightAt`) o
+es un objeto con colisión. Dibujar un obstáculo que la física desconoce es
+dibujar una mentira.
 
 ---
 
-## Flujo de la función central
+## Verificación
 
-El recorrido completo del dato, desde el archivo hasta la pantalla:
+`npm run check` abre la página en el Chrome **ya instalado**, invisible, con
+`playwright-core` — que a diferencia de `playwright` no descarga navegadores —,
+espera a que la escena confirme su primer frame, guarda una captura en
+`checks/latest.png` y lista los errores de consola.
 
-```
-waypoints.json
-      |  carga + validación de esquema
-      v
-  [datos verificados]            <-- las entradas sin fuente se descartan aquí
-      |  geo: lat/lon -> metros del mundo
-      v
-  [waypoints posicionados]
-      |
-      |<---- telemetry: posición actual del rover
-      v
-  mission: ¿distancia < radio de proximidad?
-      |  sí
-      v
-  desbloqueo del waypoint
-      |
-      +--> HUD: aviso de llegada
-      +--> mapa orbital: el pin pasa de silueta a activo
-      +--> bitácora: se archiva la nota histórica con su fuente
-```
-
-El jugador conduce, llega, y el juego le cuenta algo cierto. Esa es toda la
-propuesta.
-
----
-
-## Estructura de carpetas
-
-Objetivo. Las capas marcadas esperan la decisión del motor.
+Falla si hay errores, si no se dibuja nada, si el rover no carga o si el terreno
+lo atraviesa.
 
 ```
-perseverance/
-├── data/
-│   ├── missions/
-│   │   └── waypoints.json        # sitios reales + notas + fuentes
-│   └── instruments/              # especificaciones de instrumentos
-├── src/
-│   ├── core/                     # dominio puro, sin motor
-│   │   ├── geo/                  # conversión de coordenadas
-│   │   ├── mission/              # proximidad, desbloqueo, bitácora
-│   │   └── telemetry/            # estado del rover
-│   ├── sim/                      # (pendiente del motor)
-│   ├── render/                   # (pendiente del motor)
-│   ├── ui/                       # (pendiente del motor)
-│   └── app/                      # (pendiente del motor)
-├── tests/                        # cobertura de core/ y del validador
-├── CLAUDE.md                     # instrucciones de trabajo del proyecto
-└── README.md
+npm run check                                          # encuadre por defecto
+CHECK_URL='http://localhost:5173/?drive=90' npm run check   # tras conducir 90 s
 ```
 
----
+Parámetros de URL pensados para probar:
 
-## Modelo de datos
-
-Una entrada por sitio del recorrido:
-
-```json
-{
-  "id": "octavia-e-butler-landing",
-  "nombre": "Octavia E. Butler Landing",
-  "sol": 0,
-  "fechaTierra": "2021-02-18",
-  "coordenadas": { "lat": 18.4447, "lon": 77.4508 },
-  "unidadGeologica": "suelo del cráter",
-  "instrumentos": ["Mastcam-Z", "MEDA"],
-  "nota": "Qué ocurrió aquí.",
-  "porQueImporta": "Su relevancia científica.",
-  "fuentes": [{ "titulo": "", "url": "", "consultado": "" }],
-  "imagenes": [{ "url": "", "credito": "NASA/JPL-Caltech", "licencia": "" }],
-  "estado": "por-verificar"
-}
-```
-
-### Invariante: ningún dato sin fuente
-
-**Toda afirmación histórica que vea el jugador lleva una URL de fuente oficial.**
-Sin fuente verificada, la entrada queda en `"estado": "por-verificar"` y el
-validador la excluye del build. No se escriben notas de memoria: se consultan y
-se citan.
-
-Es una regla de arquitectura, no un buen deseo — vive en el validador de la capa
-de datos, así que un dato sin respaldo no llega a pantalla ni por descuido.
-
----
-
-## Conversión de coordenadas
-
-Plano tangente local centrado en el punto de aterrizaje:
-
-| Constante | Valor |
+| Parámetro | Para qué |
 |---|---|
-| Radio medio de Marte | `3 389 500 m` |
-| Metros por grado de latitud | `R · π/180` ≈ `59 158 m` |
-| Metros por grado de longitud en Jezero (~18.44°) | `59 158 · cos(18.4447°)` ≈ `56 124 m` |
-
-Encapsulado en un único módulo (`core/geo`) y cubierto con tests: un error de
-signo aquí desplaza todos los waypoints a la vez y no se detecta a ojo.
+| `?shot=hero` | Congela cámara y rover: capturas comparables entre rondas |
+| `?drive=N` | Conduce N segundos antes de capturar — los fallos de movimiento no salen en una foto fija |
+| `?at=x,z` | Arranca el rover donde se quiera, sin conducir kilómetros hasta allí |
 
 ---
 
-## Instrumentos
+## Qué es real y qué es aproximación
 
-Cada instrumento real es una mecánica distinta, no un botón decorativo.
+El proyecto declara sus licencias en vez de disimularlas.
 
-| Instrumento | Mecánica |
-|---|---|
-| Mastcam-Z | Modo foto con zoom y FOV real; las capturas entran a la bitácora |
-| SuperCam | Láser a distancia sobre un objetivo, devuelve composición |
-| PIXL / SHERLOC | Montados en el brazo; exigen acercarse y desplegar |
-| RIMFAX | Radar de subsuelo, corte transversal bajo el rover |
-| MEDA | Lectura ambiental: temperatura, viento, presión, opacidad |
-| Taladro y tubos | Perforar, sellar y registrar el tubo de muestra usado |
+**Real, de fuentes publicadas:** las medidas del rover (3,0 × 2,7 × 2,2 m,
+1025 kg, ruedas de 52,5 cm), su velocidad máxima de 4,2 cm/s, la altura libre
+del chasis, el modelo 3D y los nombres de sus piezas.
 
----
+**Aproximado, y dicho:**
 
-## Hoja de ruta
-
-- **Fase 0 — Datos y dominio.** Waypoints verificados con fuentes, validador,
-  módulo de coordenadas con tests. *No requiere motor.*
-- **Fase 1 — Esqueleto jugable.** Escena, terreno, rover controlable, cámara en
-  tercera persona.
-- **Fase 2 — Mapa y bitácora.** Mapa orbital, pines, proximidad, fichas históricas.
-- **Fase 3 — Instrumentos.** Las mecánicas de la tabla anterior.
-- **Fase 4 — Pulido.** Rendimiento, audio, despliegue.
+- **El terreno es procedural.** No es el relieve real del cráter Jezero. Cargar
+  el DEM de la NASA sigue siendo una decisión abierta.
+- **Fobos y Deimos están agrandadas.** A escala real, Deimos sería
+  indistinguible de una estrella.
+- **El tiempo va acelerado.** A 4,2 cm/s reales, recorrer su propio largo le
+  toma al rover más de un minuto. El HUD muestra siempre la velocidad real
+  equivalente y el factor aplicado.
+- **Las seis ruedas no giran por separado.** El `.glb` de la NASA las trae como
+  una sola malla.
 
 ---
 
 ## Decisiones abiertas
 
-| # | Decisión | Impacto | Estado |
-|---|---|---|---|
-| 1 | Motor de render y física | Bloquea las fases 1 a 4 | Abierta |
-| 2 | Terreno real desde DEM de NASA, o aproximación declarada | Capa de simulación | Abierta |
-| 3 | Suspensión rocker-bogie articulada de 6 ruedas | Modelo del rover | Abierta |
-| 4 | Alcance de fidelidad física (gravedad, energía, sol marciano) | Simulación y HUD | Abierta |
-| 5 | Corte temporal de la misión a cubrir | Capa de datos | Abierta |
+| # | Decisión | Estado |
+|---|---|---|
+| 1 | Terreno real de Jezero desde DEM de NASA | Abierta |
+| 2 | Suspensión rocker-bogie articulada | Abierta |
+| 3 | Waypoints de la misión con nota histórica y fuente | Abierta — es el pilar del proyecto |
+| 4 | Corte temporal de la misión a cubrir | Abierta |
 
-La número 5 importa más de lo que parece: el rover sigue operando, así que hay
-que fijar una fecha de corte y datarla, o los datos envejecen en silencio.
+El punto 3 es el que da sentido a todo lo demás: waypoints en coordenadas reales
+que al llegar conduciendo cuentan lo que la misión encontró ahí, cada uno con su
+fuente oficial. La regla sigue en pie — **ninguna afirmación histórica llega a
+pantalla sin una URL verificada**.
 
 ---
 
-## Fuentes
+## Fuentes y créditos
 
+- Modelo del rover: [nasa/NASA-3D-Resources](https://github.com/nasa/NASA-3D-Resources)
+  — *"These assets are free and without copyright"*. Crédito **NASA/JPL-Caltech**.
 - [Misión Mars 2020 Perseverance](https://science.nasa.gov/mission/mars-2020-perseverance/)
-- [Dónde está el rover (recorrido real)](https://mars.nasa.gov/mars2020/mission/where-is-the-rover/)
-- [Imágenes crudas](https://mars.nasa.gov/mars2020/multimedia/raw-images/)
+- [Dónde está el rover](https://mars.nasa.gov/mars2020/mission/where-is-the-rover/)
 - [NASA Mars Trek — mapas y DEM](https://trek.nasa.gov/mars/)
-- [DTM de HiRISE](https://www.uahirise.org/dtm/)
-- [Analyst's Notebook (PDS)](https://an.rsl.wustl.edu/)
-- [Modelos 3D de NASA](https://science.nasa.gov/3d-resources/)
-
-El material de NASA es de dominio público y se acredita como `NASA/JPL-Caltech`.
-Algunas imágenes tienen restricciones de terceros y se verifican antes de usarse.
-
----
-
-## Créditos
 
 Proyecto personal de aprendizaje, desarrollado con Claude Code durante un curso
 de Platzi. Sin afiliación con NASA ni con el JPL.

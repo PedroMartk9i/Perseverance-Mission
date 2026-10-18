@@ -22,28 +22,39 @@ la misión que el del profesor no cuenta.
 
 ## 2. Decisiones PENDIENTES — no las cierres por tu cuenta
 
-### 2.1 Stack técnico — SIN DEFINIR
+### 2.1 Stack técnico — DECIDIDO (2026-10-18)
 
-El usuario quiere **usar el mismo stack que usa el profesor del curso**, y
-todavía no sabe cuál es.
+**Vite + Three.js + JavaScript ES modules.**
 
-**Regla:** no instales dependencias, no corras `npm create`, no generes
-andamiaje de motor ni de render hasta que el stack esté confirmado aquí.
-Si crees que hace falta avanzar, avanza por la Fase 0 (§5), que es agnóstica.
+Versiones instaladas: `three` 0.186.1, `vite` 8.3.4, y `playwright-core` 1.64.1
+como dependencia de desarrollo para `npm run check`. Entorno: Node v24.14.1,
+npm 11.11.0, git 2.47.1, Windows 11, PowerShell.
 
-Cuando el usuario averigüe el stack, reemplaza esta sección por la decisión y
-registra la fecha. Candidatos probables, por si sirve para identificarlo:
+Queda una reserva honesta: el usuario quería igualar el stack del profesor del
+curso y todavía no lo ha visto. Vite + Three.js es la apuesta más probable, y
+la decisión es barata de revisar — si resulta ser otro motor, lo que se pierde
+es la capa de render, nunca el núcleo.
 
-| Candidato | Señales de que es el del profesor |
-|---|---|
-| Three.js + TypeScript + Vite | `import * as THREE from "three"`, `vite.config.ts`, loop con `requestAnimationFrame` |
-| React Three Fiber (+ drei, rapier) | JSX con `<Canvas>`, `useFrame`, paquetes `@react-three/*` |
-| Babylon.js | `@babylonjs/core`, `new BABYLON.Scene` |
-| Godot 4 | archivos `.tscn` / `.gd`, editor visual |
-| Unity | carpeta `Assets/`, archivos `.unity`, C# |
+**JavaScript y no TypeScript**: decisión de velocidad para la primera entrega.
+Vite transpila `.ts` sin configuración extra, así que migrar es poco más que
+cambiar extensiones.
 
-Herramientas verificadas en esta máquina: Node v24.14.1, npm 11.11.0,
-git 2.47.1. Plataforma Windows 11, shell PowerShell.
+#### Trampas de three 0.186 ya encontradas
+
+Dos APIs muy citadas en tutoriales ya no existen y **fallan en silencio**:
+
+- `THREE.PCFSoftShadowMap` fue eliminado y hace fallback a PCF duro sin avisar
+  más que por consola. Para sombras suaves hay que usar `THREE.VSMShadowMap`,
+  el único tipo que todavía respeta `shadow.radius`.
+- `THREE.Clock` está deprecado en favor de `THREE.Timer`. Aquí el delta se
+  calcula directo del timestamp de `requestAnimationFrame`, sin ninguno de los dos.
+
+### 2.3 Entorno — riesgo conocido
+
+El proyecto vive **dentro de OneDrive**. `node_modules` se sincroniza, lo que
+puede provocar errores de bloqueo de archivos (EPERM/EBUSY) en instalaciones y
+HMR lento. No ha dado problemas hasta ahora; si aparecen, la salida es pausar
+la sincronización de OneDrive mientras se trabaja.
 
 ### 2.2 Diferenciadores — SIN DEFINIR (excepto §3)
 
@@ -166,8 +177,20 @@ Investigar y construir `data/missions/waypoints.json` con waypoints reales
 verificados y sus fuentes. Módulo de conversión de coordenadas + tests.
 Esto no toca el motor, así que ningún trabajo se pierde cuando se decida §2.1.
 
-**Fase 1 — Esqueleto jugable.** Requiere stack decidido. Escena, terreno base,
-rover controlable, cámara en tercera persona.
+**Fase 1 — Esqueleto jugable.** COMPLETA (2026-10-18). Escena, dunas
+procedurales, rocas, cielo, polvo, iluminación, dos lunas, post-proceso,
+`npm run check` como lazo de verificación por captura, y el rover oficial de la
+NASA a escala real conducible con WASD, con suspensión de 6 puntos, huellas y
+cámara en tercera persona.
+
+Detalles de la ejecución y lo que quedó declarado como pendiente: ver `plan.md`.
+Dos que conviene tener presentes al tocar el rover:
+
+- El `.glb` de la NASA está **comprimido con Draco**. El decodificador se sirve
+  desde `public/draco/`, que copia `npm run fetch:model`. Sin él, `GLTFLoader`
+  falla con `No DRACOLoader instance provided`.
+- `Wheels_objs` es **una sola malla**: las 6 ruedas no se pueden direccionar por
+  separado y por eso no giran. La física de contacto sí es de 6 puntos.
 
 **Fase 2 — Mapa y bitácora.** Mapa orbital, pines, proximidad, desbloqueo,
 fichas históricas. Aquí aterriza §3.
